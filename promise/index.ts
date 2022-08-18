@@ -6,6 +6,27 @@ enum PromiseStateType {
   fulfilled = "fulfilled",
   rejected = "rejected",
 }
+const isBrowser = typeof window !== "undefined" ? true : false;
+//模拟微任务
+function simulateMicroTask(callback: () => void): void {
+  //浏览器环境 使用MutationObserver模拟微任务
+  if (isBrowser) {
+    let counter = 1;
+    const textNode = document.createTextNode(String(counter));
+    const mutationInstance = new MutationObserver(callback);
+    mutationInstance.observe(textNode, {
+      characterData: true,
+    });
+    textNode.data = String(counter + 1);
+  }
+  //node环境 使用 process.nextTick模拟微任务
+  else {
+    //@ts-ignore
+    process.nextTick(() => {
+      callback();
+    });
+  }
+}
 //@ts-ignore
 class Promise {
   //Promise实例的状态。对应ECMAScript中的Promise实例的内部属性：[[PromiseState]]
@@ -15,6 +36,11 @@ class Promise {
   //履行Promise时的reason。
   private reason: any = undefined;
   //二者共同组成了ECMAScript中的Promise实例的内部属性：[[PromiseResult]]
+
+  //用于存放fulfilled的回调函数
+  private onFulfilledCallbacks: Array<() => void> = [];
+  //用于存放rejected的回调函数
+  private onRejectedCallbacks: Array<() => void> = [];
   constructor(
     executor: (
       resolve: (value: unknown) => void,
@@ -26,6 +52,15 @@ class Promise {
       if (this.state === PromiseStateType.pending) {
         this.state = PromiseStateType.fulfilled;
         this.value = value;
+        simulateMicroTask(() => {
+          for (
+            let index = 0;
+            index < this.onFulfilledCallbacks.length;
+            index++
+          ) {
+            this.onFulfilledCallbacks[index]();
+          }
+        });
       }
     };
     let reject: (reason: unknown) => void = (reason: any) => {
@@ -33,6 +68,15 @@ class Promise {
       if (this.state === PromiseStateType.pending) {
         this.state = PromiseStateType.rejected;
         this.reason = reason;
+        simulateMicroTask(() => {
+          for (
+            let index = 0;
+            index < this.onRejectedCallbacks.length;
+            index++
+          ) {
+            this.onRejectedCallbacks[index]();
+          }
+        });
       }
     };
     if (typeof executor === "function") {
@@ -41,6 +85,33 @@ class Promise {
       } catch (err) {
         reject(err);
       }
+    }
+  }
+
+  then(onFulfilled?: (value?: any) => any, onRejected?: (reason?: any) => any) {
+    onFulfilled =
+      typeof onFulfilled === "function" ? onFulfilled : (value) => value;
+    onRejected =
+      typeof onRejected === "function"
+        ? onRejected
+        : (reason) => {
+            throw reason;
+          };
+    if (this.state === PromiseStateType.fulfilled) {
+      simulateMicroTask(() => {
+        onFulfilled!(this.value);
+      });
+    } else if (this.state === PromiseStateType.rejected) {
+      simulateMicroTask(() => {
+        onRejected!(this.reason);
+      });
+    } else {
+      this.onFulfilledCallbacks.push(() => {
+        onFulfilled!(this.value);
+      });
+      this.onRejectedCallbacks.push(() => {
+        onRejected!(this.reason);
+      });
     }
   }
 }

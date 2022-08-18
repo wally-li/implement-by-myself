@@ -180,3 +180,17 @@ class Promise {
     });
   }
 }
+//@ts-ignore
+Promise.defer = Promise.deferred = function () {
+  let dfd = {};
+  //@ts-ignore
+  dfd.promise = new Promise((resolve, reject) => {
+    //@ts-ignore
+    dfd.resolve = resolve;
+    //@ts-ignore
+    dfd.reject = reject;
+  });
+  return dfd;
+};
+//@ts-ignore
+module.exports = Promise;

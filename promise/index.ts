@@ -89,29 +89,47 @@ class Promise {
   }
 
   then(onFulfilled?: (value?: any) => any, onRejected?: (reason?: any) => any) {
-    onFulfilled =
-      typeof onFulfilled === "function" ? onFulfilled : (value) => value;
-    onRejected =
-      typeof onRejected === "function"
-        ? onRejected
-        : (reason) => {
-            throw reason;
-          };
-    if (this.state === PromiseStateType.fulfilled) {
-      simulateMicroTask(() => {
-        onFulfilled!(this.value);
-      });
-    } else if (this.state === PromiseStateType.rejected) {
-      simulateMicroTask(() => {
-        onRejected!(this.reason);
-      });
-    } else {
-      this.onFulfilledCallbacks.push(() => {
-        onFulfilled!(this.value);
-      });
-      this.onRejectedCallbacks.push(() => {
-        onRejected!(this.reason);
-      });
-    }
+    return new Promise((resolve, reject) => {
+      onFulfilled =
+        typeof onFulfilled === "function" ? onFulfilled : (value) => value;
+      onRejected =
+        typeof onRejected === "function"
+          ? onRejected
+          : (reason) => {
+              throw reason;
+            };
+      if (this.state === PromiseStateType.fulfilled) {
+        simulateMicroTask(() => {
+          try {
+            resolve(onFulfilled!(this.value));
+          } catch (err) {
+            reject(err);
+          }
+        });
+      } else if (this.state === PromiseStateType.rejected) {
+        simulateMicroTask(() => {
+          try {
+            resolve(onRejected!(this.reason));
+          } catch (err) {
+            reject(err);
+          }
+        });
+      } else {
+        this.onFulfilledCallbacks.push(() => {
+          try {
+            resolve(onFulfilled!(this.value));
+          } catch (err) {
+            reject(err);
+          }
+        });
+        this.onRejectedCallbacks.push(() => {
+          try {
+            resolve(onRejected!(this.reason));
+          } catch (err) {
+            reject(err);
+          }
+        });
+      }
+    });
   }
 }

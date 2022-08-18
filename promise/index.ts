@@ -48,6 +48,24 @@ class Promise {
     ) => void
   ) {
     let resolve: (value: unknown) => void = (value: any) => {
+      //情况一
+      if (this === value) {
+        return reject(
+          new TypeError("Chaining cycle detected for promise #<Promise>")
+        );
+      } else if (
+        (typeof value === "object" && value !== null) ||
+        typeof value === "function"
+      ) {
+        let then = value.then;
+        if (typeof then === "function") {
+          try {
+            return then.call(value, resolve, reject);
+          } catch (err) {
+            return reject(err);
+          }
+        }
+      }
       //调用resolve后，将Promise的状态改为fulfilled，Promise的结果记为value.
       if (this.state === PromiseStateType.pending) {
         this.state = PromiseStateType.fulfilled;

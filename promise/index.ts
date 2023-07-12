@@ -179,6 +179,61 @@ class Promise {
       }
     });
   }
+  catch(onRejected?: (reason?: any) => any) {
+    return this.then(undefined, onRejected);
+  }
+  finally(callback: () => void) {
+    this.then(
+      (value) => {
+        return new Promise((resolve) => {
+          resolve(callback());
+        }).then(() => value);
+      },
+      (reason) => {
+        return new Promise((resolve) => {
+          resolve(callback());
+        }).then(() => {
+          throw reason;
+        });
+      }
+    );
+  }
+  static resolve(value: unknown) {
+    return new Promise((resolve, reject) => {
+      resolve(value);
+    });
+  }
+  static reject(reason: unknown) {
+    return new Promise((resolve, reject) => {
+      reject(reason);
+    });
+  }
+  static all(list: any[]) {
+    return new Promise((resolve, reject) => {
+      //暂存成功数组元素的结果，务必和数组元素是一一对应关系
+      const results: any[] = [];
+      //记录成功状态的数量。作为标志。
+      let fulfilledCount: number = 0;
+      function fulfillPromise(value: unknown, index: number) {
+        results[index] = value;
+        if (++fulfilledCount === list.length) {
+          resolve(results);
+        }
+      }
+      for (let index = 0; index < list.length; index++) {
+        Promise.resolve(list[index]).then((value) => {
+          fulfillPromise(value, index);
+        }, reject);
+      }
+    });
+  }
+  static race(list: any[]) {
+    return new Promise((resolve, reject) => {
+      for (let index = 0; index < list.length; index++) {
+        Promise.resolve(list[index]).then(resolve, reject);
+      }
+    });
+  }
 }
 //@ts-ignore
 Promise.defer = Promise.deferred = function () {
